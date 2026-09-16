@@ -18,6 +18,7 @@ WP Cognito SSO provides:
 * Automatic WordPress user provisioning from id_token claims.
 * Configurable role mapping from Cognito claims to WordPress roles.
 * Optional WordPress -> Cognito user sync via AWS SDK.
+* A logged-in user Cognito password reset shortcode.
 
 == Installation ==
 
@@ -40,7 +41,11 @@ The callback endpoint is the configured redirect path (default: `/cognito-login`
 
 = Do I need the AWS SDK? =
 
-Only if you enable WordPress -> Cognito user sync. Hosted UI login works without the SDK.
+Only if you enable WordPress -> Cognito user sync or use the Cognito password reset shortcode. Hosted UI login works without the SDK.
+
+= How do I add a Cognito password reset form? =
+
+Add `[wcsso_cognito_password_reset]` to a WordPress page. The shortcode renders a logged-in user form with new password and confirm password fields, then updates the user's Cognito password using the AWS region, access key, secret key, and user pool ID from the plugin settings. If the Cognito user does not exist, it creates one from the current WordPress username and email, then sets the submitted password.
 
 = Does this plugin send users to Cognito automatically? =
 

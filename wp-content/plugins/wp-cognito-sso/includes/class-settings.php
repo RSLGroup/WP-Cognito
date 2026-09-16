@@ -382,6 +382,17 @@ class WCSSO_Settings
                     </tr>
                 </table>
 
+                <h2><?php echo esc_html__('Password reset shortcode', 'wcsso'); ?></h2>
+                <table class="form-table" role="presentation">
+                    <tr>
+                        <th scope="row"><?php echo esc_html__('Shortcode', 'wcsso'); ?></th>
+                        <td>
+                            <code>[wcsso_cognito_password_reset]</code>
+                            <p class="description">Adds a logged-in user password reset form that updates the user password in Cognito using the AWS region, access key, secret key, and user pool ID configured above. If the Cognito user does not exist, it creates one from the current WordPress username and email, then sets the submitted password.</p>
+                        </td>
+                    </tr>
+                </table>
+
                 <h2><?php echo esc_html__('Diagnostics', 'wcsso'); ?></h2>
                 <table class="form-table" role="presentation">
                     <tr>

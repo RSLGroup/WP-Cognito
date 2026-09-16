@@ -27,6 +27,7 @@ composer install --no-dev --optimize-autoloader
 5. Configure logout redirect path if you want Cognito logout on WP logout.
 6. Configure user provisioning claim keys and role mapping.
 7. Optional: enable WP → Cognito sync and provide AWS credentials + user pool ID.
+8. Optional: add `[wcsso_cognito_password_reset]` to a logged-in account page to let users update their Cognito password using the configured AWS SDK credentials. If the Cognito user does not exist, the shortcode creates it from the current WordPress username and email before setting the password.
 
 Notes:
 - Tested up to WordPress 6.9.
@@ -34,3 +35,4 @@ Notes:
 - The callback endpoint is the redirect path (default `/cognito-login`).
 - Auto redirect excludes wp-admin, wp-login.php, REST/AJAX, and any excluded paths.
 - JWT verification is on by default; disable only if you cannot fetch JWKS.
+- The password reset shortcode requires the AWS SDK and the plugin's AWS region, access key, secret key, and user pool ID settings.

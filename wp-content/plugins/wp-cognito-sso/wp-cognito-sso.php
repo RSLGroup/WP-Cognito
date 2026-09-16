@@ -30,6 +30,7 @@ require_once WCSSO_PLUGIN_DIR . 'includes/class-user-provisioner.php';
 require_once WCSSO_PLUGIN_DIR . 'includes/class-sso.php';
 require_once WCSSO_PLUGIN_DIR . 'includes/class-cognito-sync.php';
 require_once WCSSO_PLUGIN_DIR . 'includes/class-cognito-migration-endpoint.php';
+require_once WCSSO_PLUGIN_DIR . 'includes/class-password-reset-shortcode.php';
 
 function wcsso_activate_plugin() {
     WCSSO_SSO::add_rewrite_rules();
@@ -48,6 +49,7 @@ add_action('plugins_loaded', function () {
     WCSSO_SSO::init();
     WCSSO_Cognito_Sync::init();
     WCSSO_Cognito_Migration_Endpoint::init();
+    WCSSO_Password_Reset_Shortcode::init();
 });
 
 add_action('admin_init', function () {
