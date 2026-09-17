@@ -117,7 +117,10 @@ class WCSSO_SSO {
             'code' => $code,
             'redirect_uri' => $redirect_uri,
         ];
-        if ($client_secret) {
+        // OAuth client authentication must use one method. Prefer HTTP Basic when
+        // a client ID and secret are available; sending both Basic credentials and
+        // client_secret in the body is rejected by the SSO broker.
+        if ($client_secret && !$client_id) {
             $body['client_secret'] = $client_secret;
         }
 
