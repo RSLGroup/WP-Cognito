@@ -214,6 +214,10 @@ function wcsso_get_user_address($user_id) {
     $billing_state = get_user_meta($user_id, 'billing_state', true) ?? '';
     $billing_country = get_user_meta($user_id, 'billing_country', true) ?? '';
 
+    if ($billing_address_1 === '' && $billing_address_2 === '' && $billing_city === '' && $billing_postcode === '' && $billing_state === '' && $billing_country === '') {
+        return '';
+    }
+
     $billing_address = trim("$billing_address_1 $billing_address_2, $billing_city, $billing_postcode, $billing_country");
     $billing_street_address = trim("$billing_address_1 $billing_address_2");
 

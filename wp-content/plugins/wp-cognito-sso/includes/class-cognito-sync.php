@@ -71,25 +71,37 @@ class WCSSO_Cognito_Sync {
             return;
         }
 
-        $user_phone = get_user_meta($user_id, 'billing_phone', true) ?? '';
+        $user_phone = trim((string) get_user_meta($user_id, 'billing_phone', true));
         $address = wcsso_get_user_address($user_id);
 
         $role_attribute = $settings['sync_role_attribute_name'] ?: 'custom:user_role';
         $primary_role = wcsso_get_primary_role($user_id) ?: $settings['default_wp_role'];
+        $cognito_role = self::get_cognito_role_value($primary_role, $settings);
 
+        // Cognito rejects some empty attributes (notably phone_number). Only
+        // submit profile data WordPress actually has, so one incomplete field
+        // cannot prevent the entire account from being created or updated.
         $attributes = [
-            ['Name' => 'name', 'Value' => $full_name],
-            ['Name' => 'given_name', 'Value' => $first_name],
-            ['Name' => 'family_name', 'Value' => $last_name],
             ['Name' => 'email', 'Value' => $email],
             ['Name' => 'email_verified', 'Value' => 'true'],
-            ['Name' => 'phone_number', 'Value' => $user_phone],
-            ['Name' => 'phone_number_verified', 'Value' => $user_phone ? 'true' : 'false'],
-            ['Name' => 'address', 'Value' => $address],
         ];
 
+        self::add_attribute_if_present($attributes, 'name', $full_name);
+        self::add_attribute_if_present($attributes, 'given_name', $first_name);
+        self::add_attribute_if_present($attributes, 'family_name', $last_name);
+        self::add_attribute_if_present($attributes, 'address', $address);
+
+        if ($user_phone !== '') {
+            if (preg_match('/^\+[1-9][0-9]{1,14}$/', $user_phone)) {
+                $attributes[] = ['Name' => 'phone_number', 'Value' => $user_phone];
+                $attributes[] = ['Name' => 'phone_number_verified', 'Value' => 'true'];
+            } else {
+                wcsso_log('Cognito sync skipped an invalid billing phone number for WordPress user ' . $user_id . '. Phone numbers must use E.164 format.');
+            }
+        }
+
         if (!empty($settings['sync_role_enabled'])) {
-            $attributes[] = ['Name' => $role_attribute, 'Value' => $primary_role];
+            $attributes[] = ['Name' => $role_attribute, 'Value' => $cognito_role];
         }
 
         $raw_pass = apply_filters('wcsso_raw_password_for_user_sync', null, $user_id);
@@ -138,5 +150,30 @@ class WCSSO_Cognito_Sync {
                 do_action('wcsso_sync_error', $user_id, 'update', $e);
             }
         }
+    }
+
+    private static function add_attribute_if_present(array &$attributes, $name, $value) {
+        $value = trim((string) $value);
+        if ($value !== '') {
+            $attributes[] = ['Name' => $name, 'Value' => $value];
+        }
+    }
+
+    /**
+     * Role mapping is stored as Cognito claim value => WordPress role. Reverse
+     * that mapping for WordPress-to-Cognito sync so the same mapping works in
+     * both directions. For example, instructor => music_teacher means a
+     * music_teacher user is written to Cognito as instructor.
+     */
+    private static function get_cognito_role_value($wp_role, array $settings) {
+        $role_map = is_array($settings['role_mapping'] ?? null) ? $settings['role_mapping'] : [];
+
+        foreach ($role_map as $claim_value => $mapped_wp_role) {
+            if ($mapped_wp_role === $wp_role) {
+                return apply_filters('wcsso_mapped_cognito_role', $claim_value, $wp_role, $role_map);
+            }
+        }
+
+        return apply_filters('wcsso_mapped_cognito_role', $wp_role, $wp_role, $role_map);
     }
 }
