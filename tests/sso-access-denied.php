@@ -4,27 +4,34 @@
 define('ABSPATH', __DIR__);
 require __DIR__ . '/../wp-content/plugins/wp-cognito-sso/includes/helpers.php';
 require __DIR__ . '/../wp-content/plugins/wp-cognito-sso/includes/class-sso.php';
+require __DIR__ . '/../wp-content/plugins/wp-cognito-sso/includes/class-settings.php';
 
 class TestResponse extends RuntimeException {
     public $payload;
     public function __construct($payload) { $this->payload = $payload; }
 }
 class WCSSO_JWT {
-    public static function decode($token, $options) { return ['email' => 'missing@example.test']; }
+    public static function decode($token, $options) { return $GLOBALS['claims']; }
 }
 class WCSSO_User_Provisioner {
-    public static function create_or_update($claims) { return 42; }
+    public static function create_or_update($claims) { $GLOBALS['provisioning_calls']++; return 42; }
 }
 function get_option($key, $default) { return $GLOBALS['settings']; }
 function get_query_var($key) { return 1; }
-function sanitize_text_field($value) { return $value; }
+function sanitize_text_field($value) { return trim(strip_tags($value)); }
+function sanitize_textarea_field($value) { return $value; }
+function sanitize_key($value) { return preg_replace('/[^a-z0-9_\-]/', '', strtolower($value)); }
+function update_option($key, $value) {}
 function wp_unslash($value) { return $value; }
 function home_url($path = '') { return 'https://site.example' . $path; }
 function wp_remote_post($url, $args) { return []; }
 function wp_remote_retrieve_body($response) { return '{"id_token":"test"}'; }
 function is_wp_error($value) { return false; }
 function do_action(...$args) {}
-function apply_filters($name, $value) { return $value; }
+function apply_filters($name, $value) {
+    if ($name === 'wcsso_claims' && !empty($GLOBALS['strip_role_in_filter'])) { unset($value['custom:user_role']); }
+    return $value;
+}
 function get_user_by($field, $email) { return $GLOBALS['existing_user']; }
 function add_query_arg($key, $value, $url) { return $url . '?' . $key . '=' . $value; }
 function wp_nonce_url($url, $action) { return $url . '&_wpnonce=valid'; }
@@ -50,6 +57,8 @@ $GLOBALS['settings'] = array_merge(wcsso_get_default_settings(), [
     'login_enabled' => 1, 'provisioning_enabled' => 0,
     'cognito_domain' => 'auth.example', 'client_id' => 'client',
 ]);
+$GLOBALS['claims'] = ['email' => 'missing@example.test'];
+$GLOBALS['provisioning_calls'] = 0;
 $GLOBALS['existing_user'] = false;
 $result = run_callback(['code' => 'test']);
 check($result['args']['response'] === 403, 'Access must be denied with HTTP 403');
@@ -62,6 +71,45 @@ check(run_callback(['code' => 'test'])['authenticated'] === 7, 'Existing user lo
 $GLOBALS['settings']['provisioning_enabled'] = 1;
 check(run_callback(['code' => 'test'])['authenticated'] === 42, 'Provisioning login changed');
 
+// Deny both new and existing accounts before any provisioning or authentication.
+$GLOBALS['settings']['role_blacklist'] = ' student, parent, ,student ';
+$GLOBALS['settings']['role_claim_key'] = 'some:other_mapping_claim';
+foreach ([0, 1] as $provisioning) {
+    foreach ([false, (object) ['ID' => 7]] as $existing) {
+        foreach (['student', 'allowed, parent', ' parent , student '] as $role) {
+            $GLOBALS['settings']['provisioning_enabled'] = $provisioning;
+            $GLOBALS['existing_user'] = $existing;
+            $GLOBALS['claims']['custom:user_role'] = $role;
+            $GLOBALS['strip_role_in_filter'] = true;
+            unset($GLOBALS['authenticated']);
+            $before = $GLOBALS['provisioning_calls'];
+            $blocked = run_callback(['code' => 'test']);
+            check(($blocked['args']['response'] ?? 0) === 403, 'Blacklisted account not denied');
+            check(strpos($blocked['message'], '>Log out</a>') !== false, 'Blocked role missing logout link');
+            check(empty($GLOBALS['authenticated']) && $GLOBALS['provisioning_calls'] === $before, 'Blocked account reached provisioning or authentication');
+        }
+    }
+}
+$GLOBALS['strip_role_in_filter'] = false;
+$GLOBALS['settings']['provisioning_enabled'] = 1;
+foreach (['teacher', 'Student', 'student_assistant', ''] as $role) {
+    $GLOBALS['claims']['custom:user_role'] = $role;
+    check(run_callback(['code' => 'test'])['authenticated'] === 42, 'Nonmatching role blocked');
+}
+unset($GLOBALS['claims']['custom:user_role']);
+check(run_callback(['code' => 'test'])['authenticated'] === 42, 'Missing role should not match blacklist');
+$GLOBALS['settings']['role_blacklist'] = ' , , ';
+$GLOBALS['claims']['custom:user_role'] = 'student';
+check(run_callback(['code' => 'test'])['authenticated'] === 42, 'Blank blacklist must disable blocking');
+$GLOBALS['settings']['role_blacklist'] = '0';
+$GLOBALS['claims']['custom:user_role'] = '0';
+check(run_callback(['code' => 'test'])['args']['response'] === 403, 'Role zero must not be dropped');
+
+$sanitized = WCSSO_Settings::sanitize_settings(['role_blacklist' => ' student, <b>parent</b>, ,student, 0 ']);
+check($sanitized['role_blacklist'] === 'student, parent, 0', 'Blacklist not sanitized/normalized');
+check(WCSSO_Settings::sanitize_settings([])['role_blacklist'] === '', 'Clearing blacklist failed');
+check(WCSSO_Settings::sanitize_settings(['role_blacklist' => ['invalid']])['role_blacklist'] === '', 'Invalid blacklist input not handled');
+
 $result = run_callback(['wcsso_logout' => '1', '_wpnonce' => 'invalid']);
 check($result['args']['response'] === 403 && empty($GLOBALS['logged_out']), 'Invalid nonce allowed logout');
 // Routine Cognito logout is disabled by default; recovery must still log out there.
@@ -70,4 +118,4 @@ check(!empty($GLOBALS['logged_out']) && !empty($GLOBALS['nocache']) && !empty($G
 check($result['redirect'] === 'https://auth.example/logout?client_id=client&logout_uri=https%3A%2F%2Fsite.example%2Flogout', 'Wrong Cognito logout URL');
 unset($GLOBALS['settings']['client_id']);
 check(run_callback(['wcsso_logout' => '1', '_wpnonce' => 'valid'])['redirect'] === 'https://site.example/logout', 'Local fallback failed');
-echo "Passed: denied message/link, existing/provisioned logins, nonce checks, WordPress/Cognito logout, local fallback.\n";
+echo "Passed: denied message/link, existing/provisioned logins, role blacklist before provisioning/login, settings sanitization, nonce checks, WordPress/Cognito logout, local fallback.\n";

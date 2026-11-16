@@ -13,6 +13,7 @@ function wcsso_get_default_settings() {
         'auto_redirect_login' => 0,
         'excluded_paths' => "/logout\n/cognito-login",
         'new_user_redirect_url' => '',
+        'role_blacklist' => '',
         'logout_enabled' => 0,
         'logout_redirect_path' => '/logout',
         'provisioning_enabled' => 1,
@@ -36,6 +37,15 @@ function wcsso_get_default_settings() {
         'debug' => 0,
         'jwt_verify' => 1,
     ];
+}
+
+function wcsso_parse_role_list($value) {
+    if (!is_string($value)) {
+        return [];
+    }
+    return array_values(array_unique(array_filter(array_map('trim', explode(',', $value)), static function ($role) {
+        return $role !== '';
+    })));
 }
 
 function wcsso_get_settings() {

@@ -161,6 +161,13 @@ class WCSSO_SSO {
             wp_die('Cognito login failed: invalid token.');
         }
 
+        // Check the Cognito attribute before claim filters, provisioning or session creation.
+        $blocked_roles = wcsso_parse_role_list($settings['role_blacklist']);
+        $user_roles = wcsso_parse_role_list($claims['custom:user_role'] ?? '');
+        if (array_intersect($blocked_roles, $user_roles)) {
+            self::deny_login($settings);
+        }
+
         $claims = apply_filters('wcsso_claims', $claims);
 
         if (!empty($settings['provisioning_enabled'])) {
@@ -176,13 +183,7 @@ class WCSSO_SSO {
         }
 
         if (empty($user_id)) {
-            $logout_url = wp_nonce_url(add_query_arg('wcsso_logout', '1', home_url(wcsso_normalize_path($settings['redirect_path']))), 'wcsso_denied_login_logout');
-            wp_die(
-                esc_html__('You do not have access to log in to this platform. Please contact your administrator if you think this is in error.', 'wcsso') .
-                '</p><p><a href="' . esc_url($logout_url) . '">' . esc_html__('Log out', 'wcsso') . '</a>',
-                esc_html__('Access denied', 'wcsso'),
-                ['response' => 403]
-            );
+            self::deny_login($settings);
         }
 
         wp_set_current_user($user_id);
@@ -217,6 +218,16 @@ class WCSSO_SSO {
 
         wp_redirect($redirect_to);
         exit;
+    }
+
+    private static function deny_login($settings) {
+        $logout_url = wp_nonce_url(add_query_arg('wcsso_logout', '1', home_url(wcsso_normalize_path($settings['redirect_path']))), 'wcsso_denied_login_logout');
+        wp_die(
+            esc_html__('You do not have access to log in to this platform. Please contact your administrator if you think this is in error.', 'wcsso') .
+            '</p><p><a href="' . esc_url($logout_url) . '">' . esc_html__('Log out', 'wcsso') . '</a>',
+            esc_html__('Access denied', 'wcsso'),
+            ['response' => 403]
+        );
     }
 
     private static function handle_denied_login_logout($settings) {
