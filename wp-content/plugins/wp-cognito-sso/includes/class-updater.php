@@ -12,8 +12,18 @@ class WCSSO_Updater {
     public static function init() {
         add_filter('update_plugins_github.com', [__CLASS__, 'check_update'], 10, 3);
         add_filter('auto_update_plugin', [__CLASS__, 'auto_update'], 10, 2);
+        add_filter('all_plugins', [__CLASS__, 'mark_update_supported'], 10, 1);
         add_filter('plugins_api', [__CLASS__, 'plugin_information'], 10, 3);
         add_action('upgrader_process_complete', [__CLASS__, 'clear_cache'], 10, 2);
+    }
+
+    public static function mark_update_supported($plugins) {
+        $plugin_file = plugin_basename(WCSSO_PLUGIN_FILE);
+        if (isset($plugins[$plugin_file])) {
+            // Keep the toggle available even before the first successful GitHub check.
+            $plugins[$plugin_file]['update-supported'] = true;
+        }
+        return $plugins;
     }
 
     public static function check_update($update, $plugin_data, $plugin_file) {
@@ -43,9 +53,15 @@ class WCSSO_Updater {
             return $update;
         }
 
-        // WordPress still enforces its global updater and filesystem restrictions.
-        return empty($item->disable_autoupdate)
-            && (!defined('WCSSO_AUTO_UPDATE') || WCSSO_AUTO_UPDATE);
+        if (!empty($item->disable_autoupdate)
+            || (defined('WCSSO_AUTO_UPDATE') && !WCSSO_AUTO_UPDATE)) {
+            return false;
+        }
+
+        // Preserve null during the Plugins screen's forced-update probe, and the
+        // saved WordPress choice during background updates. A boolean here would
+        // lock the UI and hide its Enable/Disable auto-updates link.
+        return $update;
     }
 
     public static function plugin_information($result, $action, $args) {

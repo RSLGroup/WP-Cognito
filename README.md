@@ -26,13 +26,15 @@ Hosted login and migration verification do not use the AWS SDK directly. The SDK
 
 ## Automatic plugin updates
 
-Starting with 1.0.8, this plugin checks the latest published stable release in [RSLGroup/WP-Cognito](https://github.com/RSLGroup/WP-Cognito/releases) during WordPress's normal plugin update checks. WordPress displays available updates under **Dashboard → Updates** and **Plugins**, and installs this plugin's updates automatically using its background updater. The plugin details dialog shows release notes. WordPress's standard automatic-update result emails remain in use, subject to the site's email settings and delivery.
+Starting with 1.0.8, this plugin checks the latest published stable release in [RSLGroup/WP-Cognito](https://github.com/RSLGroup/WP-Cognito/releases) during WordPress's normal plugin update checks. WordPress displays available updates under **Dashboard → Updates** and **Plugins**. When an administrator enables auto-updates, WordPress installs this plugin's updates using its background updater. The plugin details dialog shows release notes. WordPress's standard automatic-update result emails remain in use, subject to the site's email settings and delivery.
 
 **Install 1.0.8 once on each existing site** to enable this mechanism. Older versions cannot discover this update themselves. Use the release's `wp-cognito-sso.zip` asset, which contains the correct plugin folder and production AWS SDK dependencies. GitHub's generated source archives are not installable plugin packages for this repository.
 
 Updates follow WordPress's schedule, rather than happening immediately after a release. WP-Cron, outbound access to GitHub and raw.githubusercontent.com, and permission to install background updates must be available. Global WordPress or hosting restrictions still apply. Successful release lookups are cached for one hour; failed or incomplete releases are retried after five minutes. Drafts, prereleases, invalid versions, missing ZIPs and mismatched version headers are ignored. Compatibility requirements come from the released plugin's headers.
 
-To disable automatic installation for this plugin while keeping update notifications, add this to `wp-config.php`:
+On new installations, auto-updates start disabled. To opt in, open **Plugins → Installed Plugins** and click **Enable auto-updates** beside WP Cognito SSO. Once enabled, click **Disable auto-updates** to turn them off again. Existing saved WordPress choices are preserved across page loads, plugin reactivation and updates. On multisite, use **Network Admin → Plugins**. Available update notices remain visible when automatic installation is disabled.
+
+For a configuration-level override that prevents automatic installation, add this to `wp-config.php` (this intentionally locks the WordPress toggle to disabled):
 
 ```php
 define('WCSSO_AUTO_UPDATE', false);

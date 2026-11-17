@@ -8,12 +8,15 @@ $cache = [];
 $responses = [];
 $requests = [];
 $hooks = [];
+$site_options = ['auto_update_plugins' => ['other/plugin.php']];
 function plugin_basename($file) { return 'wp-cognito-sso/' . basename($file); }
 function add_filter($hook, $callback, $priority, $args) { $GLOBALS['hooks'][$hook] = [$callback, $args]; }
 function add_action($hook, $callback, $priority, $args) { add_filter($hook, $callback, $priority, $args); }
 function get_site_transient($key) { return $GLOBALS['cache'][$key][0] ?? false; }
 function set_site_transient($key, $value, $ttl) { $GLOBALS['cache'][$key] = [$value, $ttl]; }
 function delete_site_transient($key) { unset($GLOBALS['cache'][$key]); }
+function get_site_option($key, $default = false) { return $GLOBALS['site_options'][$key] ?? $default; }
+function update_site_option($key, $value) { $GLOBALS['site_options'][$key] = $value; }
 function wp_remote_get($url, $args) {
     $GLOBALS['requests'][] = $url;
     if (!array_key_exists($url, $GLOBALS['responses'])) {
@@ -54,7 +57,14 @@ function check() {
 }
 
 WCSSO_Updater::init();
-expect(count($hooks) === 4, 'Updater hooks must be registered.');
+expect(count($hooks) === 5, 'Updater hooks must be registered.');
+expect($site_options['auto_update_plugins'] === ['other/plugin.php'], 'First initialization must leave this plugin disabled until an administrator opts in.');
+$supported = WCSSO_Updater::mark_update_supported([
+    plugin_basename(WCSSO_PLUGIN_FILE) => ['Name' => 'WP Cognito SSO'],
+    'other/plugin.php' => ['Name' => 'Other'],
+]);
+expect($supported[plugin_basename(WCSSO_PLUGIN_FILE)]['update-supported'] === true, 'The WordPress toggle must be available without cached release metadata.');
+expect($supported['other/plugin.php'] === ['Name' => 'Other'], 'Other plugins must retain their metadata.');
 fixture();
 $unchanged = ['other' => true];
 expect(WCSSO_Updater::check_update($unchanged, [], 'other/plugin.php') === $unchanged, 'Other GitHub plugins must be untouched.');
@@ -102,11 +112,22 @@ $responses[$header_url] = ['status' => 404, 'body' => 'not found'];
 expect(check() === false, 'Unavailable tagged source must not offer updates.');
 
 $own = (object) ['plugin' => plugin_basename(WCSSO_PLUGIN_FILE)];
-expect(WCSSO_Updater::auto_update(false, $own) === true, 'This plugin must auto-update by default.');
+expect(WCSSO_Updater::auto_update(null, $own) === null, 'The WordPress UI probe must remain null so the toggle is not locked.');
+expect(WCSSO_Updater::auto_update(true, $own) === true, 'A saved enable choice must be respected.');
+update_site_option('auto_update_plugins', ['other/plugin.php']);
+WCSSO_Updater::init();
+expect($site_options['auto_update_plugins'] === ['other/plugin.php'], 'A saved disable choice must survive reinitialization.');
+expect(WCSSO_Updater::auto_update(false, $own) === false, 'A saved disable choice must be respected during updates.');
+update_site_option('auto_update_plugins', ['other/plugin.php', $own->plugin]);
+WCSSO_Updater::init();
+expect($site_options['auto_update_plugins'] === ['other/plugin.php', $own->plugin], 'Re-enabling must persist without duplicate entries.');
 expect(WCSSO_Updater::auto_update(null, (object) ['plugin' => 'other/plugin.php']) === null, 'Other plugins must retain their auto-update policy.');
 expect(WCSSO_Updater::auto_update(true, (object) ['plugin' => $own->plugin, 'disable_autoupdate' => true]) === false, 'Update veto flag must be respected.');
 define('WCSSO_AUTO_UPDATE', false);
 expect(WCSSO_Updater::auto_update(true, $own) === false, 'Site-specific opt-out must be respected.');
+update_site_option('auto_update_plugins', ['other/plugin.php']);
+WCSSO_Updater::init();
+expect($site_options['auto_update_plugins'] === ['other/plugin.php'], 'Configuration opt-out must not change saved WordPress choices.');
 fixture();
 check();
 WCSSO_Updater::clear_cache(null, ['type' => 'plugin', 'action' => 'update', 'plugins' => ['other/plugin.php']]);
