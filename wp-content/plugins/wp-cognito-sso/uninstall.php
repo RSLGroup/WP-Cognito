@@ -3,6 +3,7 @@
 defined('WP_UNINSTALL_PLUGIN') || exit;
 
 delete_site_transient('wcsso_github_release');
+delete_site_transient('wcsso_update_error');
 
 if (is_multisite()) {
     $sites = get_sites(['fields' => 'ids']);

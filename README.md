@@ -34,6 +34,10 @@ Updates follow WordPress's schedule, rather than happening immediately after a r
 
 To request an immediate check, open **Dashboard → Updates → Check again**. This clears both this plugin's GitHub release cache and WordPress's plugin update cache before the normal update checks run. Only administrators with plugin-update permission can trigger this refresh. Merely opening the Updates page keeps the release cache in use. Older installed versions without this refresh behavior may continue using the release cache for up to one hour.
 
+From 1.0.16, GitHub update offers are registered directly in WordPress's plugin update data, so a failed WordPress.org request no longer skips this plugin's check. If GitHub cannot be reached, is rate-limited, or returns an invalid package or version, administrators see the specific failure on the Plugins and Updates screens. This message does not imply that the plugin is current. The GitHub release API and tagged source must still be reachable from the site's PHP environment.
+
+If an older installation cannot discover releases, install the fixed plugin ZIP once through **Plugins → Add New Plugin → Upload Plugin**, and choose to replace the existing plugin. Then use **Dashboard → Updates → Check again**. A site-specific connection problem will be shown as a warning; the site host may need to allow outbound requests to GitHub. Automatic installation remains opt-in.
+
 On new installations, auto-updates start disabled. To opt in, open **Plugins → Installed Plugins** and click **Enable auto-updates** beside WP Cognito SSO. Once enabled, click **Disable auto-updates** to turn them off again. Existing saved WordPress choices are preserved across page loads, plugin reactivation and updates. On multisite, use **Network Admin → Plugins**. Available update notices remain visible when automatic installation is disabled.
 
 For a configuration-level override that prevents automatic installation, add this to `wp-config.php` (this intentionally locks the WordPress toggle to disabled):

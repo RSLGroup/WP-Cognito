@@ -4,7 +4,7 @@ Tags: cognito, sso, aws, oauth2, login
 Requires at least: 6.0
 Tested up to: 6.9
 Requires PHP: 8.0
-Stable tag: 1.0.14
+Stable tag: 1.0.16
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -71,6 +71,11 @@ Exclude login, callback and logout paths from full-page or reverse-proxy caches.
 1. Cognito SSO settings page.
 
 == Changelog ==
+
+= 1.0.16 =
+* Register GitHub update offers even when WordPress.org update requests fail.
+* Show actionable update-check errors on the Plugins and Updates screens.
+* Preserve administrator control of automatic installation and manual refresh.
 
 = 1.0.10 =
 * Add automation for update plugin

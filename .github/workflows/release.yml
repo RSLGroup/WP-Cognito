@@ -40,6 +40,10 @@ jobs:
           php tests/updater-test.php
           php tests/release-test.php
           php tests/sso-access-denied.php
+      - name: Verify native WordPress update integration
+        run: |
+          curl --fail --silent --show-error --location https://raw.githubusercontent.com/WordPress/WordPress/6.9-branch/wp-includes/update.php --output "$RUNNER_TEMP/wp-update.php"
+          php tests/wp-update-integration.php "$RUNNER_TEMP/wp-update.php"
       - name: Install production dependencies
         run: composer install --working-dir=wp-content/plugins/wp-cognito-sso --no-dev --prefer-dist --optimize-autoloader --no-interaction --no-progress
       - name: Build installable plugin

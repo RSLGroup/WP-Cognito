@@ -10,6 +10,13 @@ $requests = [];
 $hooks = [];
 $site_options = ['auto_update_plugins' => ['other/plugin.php']];
 $can_update_plugins = true;
+$installed_version = '1.0.8';
+$screen_id = 'plugins';
+class UpdateTestError extends RuntimeException {
+    public function get_error_message() { return $this->getMessage(); }
+}
+function get_file_data($file, $headers, $context = '') { return ['Version' => $GLOBALS['installed_version']]; }
+function get_current_screen() { return (object) ['id' => $GLOBALS['screen_id']]; }
 function plugin_basename($file) { return 'wp-cognito-sso/' . basename($file); }
 function add_filter($hook, $callback, $priority, $args) { $GLOBALS['hooks'][$hook] = [$callback, $args]; }
 function add_action($hook, $callback, $priority, $args) { add_filter($hook, $callback, $priority, $args); }
@@ -59,7 +66,7 @@ function check() {
 }
 
 WCSSO_Updater::init();
-expect(count($hooks) === 6, 'Updater hooks must be registered.');
+expect(count($hooks) === 8, 'Updater hooks must be registered.');
 expect($site_options['auto_update_plugins'] === ['other/plugin.php'], 'First initialization must leave this plugin disabled until an administrator opts in.');
 $supported = WCSSO_Updater::mark_update_supported([
     plugin_basename(WCSSO_PLUGIN_FILE) => ['Name' => 'WP Cognito SSO'],
@@ -95,12 +102,13 @@ foreach ([['draft' => true], ['prerelease' => true], ['tag_name' => 'v2.0.0-beta
     expect(count($requests) === $count, 'Failed release discovery must be cached.');
     expect($cache[WCSSO_Updater::CACHE_KEY][1] === 5 * MINUTE_IN_SECONDS, 'Failure cache must last five minutes.');
 }
-foreach ([new RuntimeException('Offline'), ['status' => 403, 'body' => 'rate limited'],
+foreach ([new UpdateTestError('Offline'), ['status' => 403, 'body' => 'rate limited'],
     ['status' => 404, 'body' => 'no release'], ['status' => 200, 'body' => 'invalid JSON'],
     ['status' => 200, 'body' => 'null']] as $response) {
     fixture();
     $responses[WCSSO_Updater::API] = $response;
     expect(check() === false, 'HTTP errors and malformed responses must not offer updates.');
+    expect(is_string(get_site_transient(WCSSO_Updater::ERROR_KEY)), 'Failed checks must retain a visible reason.');
 }
 fixture([], " * Version: 2.0.0\n * Requires at least: 6.0\n * Requires PHP: 8.0\n * Tested up to: 6.9\n");
 expect(check() === false, 'Tag/header mismatch must not offer an update.');
@@ -154,4 +162,31 @@ set_site_transient(WCSSO_Updater::CACHE_KEY, 'unavailable', 5 * MINUTE_IN_SECOND
 WCSSO_Updater::maybe_force_update_check();
 expect(check()['version'] === '1.0.9' && count($requests) === 6, 'A forced check must also bypass cached lookup failures.');
 unset($_GET['force-check']);
+fixture();
+$other = (object) ['new_version' => '4.0'];
+$transient = WCSSO_Updater::inject_update((object) ['last_checked' => time(), 'response' => ['other/plugin.php' => $other]]);
+expect($transient->response[$own->plugin]->new_version === '1.0.9', 'Native update payload must include the released version.');
+expect($transient->response[$own->plugin]->plugin === $own->plugin, 'Native update payload must identify the installed plugin.');
+expect($transient->response['other/plugin.php'] === $other, 'Other update offers must remain untouched.');
+$installed_version = '1.0.9';
+$transient = WCSSO_Updater::inject_update($transient);
+expect(!isset($transient->response[$own->plugin]) && isset($transient->no_update[$own->plugin]), 'The installed release must not be offered again.');
+$installed_version = '2.0.0';
+$transient = WCSSO_Updater::inject_update($transient);
+expect(!isset($transient->response[$own->plugin]), 'A release must never downgrade the installed version.');
+expect(WCSSO_Updater::inject_update(false) === false, 'Invalid transient values must remain untouched.');
+set_site_transient(WCSSO_Updater::ERROR_KEY, 'HTTP 403 <script>unsafe</script>', 300);
+ob_start();
+WCSSO_Updater::show_update_error();
+$notice = ob_get_clean();
+expect(strpos($notice, 'HTTP 403') !== false && strpos($notice, '<script>') === false, 'Failure notices must explain the error with escaped output.');
+$can_update_plugins = false;
+ob_start();
+WCSSO_Updater::show_update_error();
+expect(ob_get_clean() === '', 'Failure notices must be restricted to users who can update plugins.');
+$can_update_plugins = true;
+$screen_id = 'dashboard';
+ob_start();
+WCSSO_Updater::show_update_error();
+expect(ob_get_clean() === '', 'Failure notices must be restricted to update-related screens.');
 echo "Updater contract tests passed.\n";
