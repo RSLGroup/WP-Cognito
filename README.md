@@ -32,6 +32,8 @@ Starting with 1.0.8, this plugin checks the latest published stable release in [
 
 Updates follow WordPress's schedule, rather than happening immediately after a release. WP-Cron, outbound access to GitHub and raw.githubusercontent.com, and permission to install background updates must be available. Global WordPress or hosting restrictions still apply. Successful release lookups are cached for one hour; failed or incomplete releases are retried after five minutes. Drafts, prereleases, invalid versions, missing ZIPs and mismatched version headers are ignored. Compatibility requirements come from the released plugin's headers.
 
+To request an immediate check, open **Dashboard → Updates → Check again**. This clears both this plugin's GitHub release cache and WordPress's plugin update cache before the normal update checks run. Only administrators with plugin-update permission can trigger this refresh. Merely opening the Updates page keeps the release cache in use. Older installed versions without this refresh behavior may continue using the release cache for up to one hour.
+
 On new installations, auto-updates start disabled. To opt in, open **Plugins → Installed Plugins** and click **Enable auto-updates** beside WP Cognito SSO. Once enabled, click **Disable auto-updates** to turn them off again. Existing saved WordPress choices are preserved across page loads, plugin reactivation and updates. On multisite, use **Network Admin → Plugins**. Available update notices remain visible when automatic installation is disabled.
 
 For a configuration-level override that prevents automatic installation, add this to `wp-config.php` (this intentionally locks the WordPress toggle to disabled):

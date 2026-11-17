@@ -15,6 +15,17 @@ class WCSSO_Updater {
         add_filter('all_plugins', [__CLASS__, 'mark_update_supported'], 10, 1);
         add_filter('plugins_api', [__CLASS__, 'plugin_information'], 10, 3);
         add_action('upgrader_process_complete', [__CLASS__, 'clear_cache'], 10, 2);
+        // Run before WordPress's own update checks on this screen (priority 10).
+        add_action('load-update-core.php', [__CLASS__, 'maybe_force_update_check'], 9, 0);
+    }
+
+    public static function maybe_force_update_check() {
+        if (empty($_GET['force-check']) || !current_user_can('update_plugins')) {
+            return;
+        }
+
+        delete_site_transient(self::CACHE_KEY);
+        delete_site_transient('update_plugins');
     }
 
     public static function mark_update_supported($plugins) {

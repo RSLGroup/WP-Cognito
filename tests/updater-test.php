@@ -9,6 +9,7 @@ $responses = [];
 $requests = [];
 $hooks = [];
 $site_options = ['auto_update_plugins' => ['other/plugin.php']];
+$can_update_plugins = true;
 function plugin_basename($file) { return 'wp-cognito-sso/' . basename($file); }
 function add_filter($hook, $callback, $priority, $args) { $GLOBALS['hooks'][$hook] = [$callback, $args]; }
 function add_action($hook, $callback, $priority, $args) { add_filter($hook, $callback, $priority, $args); }
@@ -17,6 +18,7 @@ function set_site_transient($key, $value, $ttl) { $GLOBALS['cache'][$key] = [$va
 function delete_site_transient($key) { unset($GLOBALS['cache'][$key]); }
 function get_site_option($key, $default = false) { return $GLOBALS['site_options'][$key] ?? $default; }
 function update_site_option($key, $value) { $GLOBALS['site_options'][$key] = $value; }
+function current_user_can($capability) { return $capability === 'update_plugins' && $GLOBALS['can_update_plugins']; }
 function wp_remote_get($url, $args) {
     $GLOBALS['requests'][] = $url;
     if (!array_key_exists($url, $GLOBALS['responses'])) {
@@ -57,7 +59,7 @@ function check() {
 }
 
 WCSSO_Updater::init();
-expect(count($hooks) === 5, 'Updater hooks must be registered.');
+expect(count($hooks) === 6, 'Updater hooks must be registered.');
 expect($site_options['auto_update_plugins'] === ['other/plugin.php'], 'First initialization must leave this plugin disabled until an administrator opts in.');
 $supported = WCSSO_Updater::mark_update_supported([
     plugin_basename(WCSSO_PLUGIN_FILE) => ['Name' => 'WP Cognito SSO'],
@@ -134,4 +136,22 @@ WCSSO_Updater::clear_cache(null, ['type' => 'plugin', 'action' => 'update', 'plu
 expect(get_site_transient(WCSSO_Updater::CACHE_KEY) !== false, 'Unrelated upgrades must retain cache.');
 WCSSO_Updater::clear_cache(null, ['type' => 'plugin', 'action' => 'update', 'plugins' => [$own->plugin]]);
 expect(get_site_transient(WCSSO_Updater::CACHE_KEY) === false, 'Own upgrades must clear cache.');
+fixture();
+check();
+set_site_transient('update_plugins', (object) ['last_checked' => time()], HOUR_IN_SECONDS);
+WCSSO_Updater::maybe_force_update_check();
+expect(get_site_transient(WCSSO_Updater::CACHE_KEY) !== false, 'An ordinary Updates page visit must retain the release cache.');
+$_GET['force-check'] = '1';
+$can_update_plugins = false;
+WCSSO_Updater::maybe_force_update_check();
+expect(get_site_transient(WCSSO_Updater::CACHE_KEY) !== false, 'Users without update permission must not flush the cache.');
+$can_update_plugins = true;
+WCSSO_Updater::maybe_force_update_check();
+expect(get_site_transient(WCSSO_Updater::CACHE_KEY) === false, 'Check again must clear the cached GitHub release.');
+expect(get_site_transient('update_plugins') === false, 'Check again must also clear WordPress plugin update scheduling.');
+expect(check()['version'] === '1.0.9' && count($requests) === 4, 'A forced check must fetch release data again immediately.');
+set_site_transient(WCSSO_Updater::CACHE_KEY, 'unavailable', 5 * MINUTE_IN_SECONDS);
+WCSSO_Updater::maybe_force_update_check();
+expect(check()['version'] === '1.0.9' && count($requests) === 6, 'A forced check must also bypass cached lookup failures.');
+unset($_GET['force-check']);
 echo "Updater contract tests passed.\n";
