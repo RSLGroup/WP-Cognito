@@ -2,7 +2,7 @@
 /**
  * Plugin Name: WP Cognito SSO
  * Description: Cognito Hosted UI SSO for WordPress with optional user sync.
- * Version: 1.0.16
+ * Version: 1.0.17
  * Update URI: https://github.com/RSLGroup/WP-Cognito
  * Author: RSL Group
  * Requires at least: 6.0
