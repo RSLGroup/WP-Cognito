@@ -40,18 +40,20 @@ define('WCSSO_AUTO_UPDATE', false);
 
 ### Publishing a plugin update
 
-1. Update the plugin's `Version` header and `readme.txt` stable tag to the same new `major.minor.patch` version, and add release notes to the changelog.
-2. Commit and push the changes, then push a matching tag such as `v1.0.8`.
-3. The release workflow checks PHP, tests the updater, installs locked production dependencies, builds `wp-cognito-sso.zip`, and publishes a GitHub release with that asset. The release remains a draft until the ZIP has been uploaded.
+1. Merge your changes into `main`. Every push to `main`, including a merged pull request, starts the release workflow.
+2. The workflow chooses the greater of the source plugin version and existing stable `vmajor.minor.patch` tags, then increases its patch version. For example, `1.0.10` becomes `1.0.11`. No manual version bump or tag is needed.
+3. It creates a release commit containing matching plugin and readme versions and a changelog entry, then tags that commit. This commit is based on the exact triggering `main` commit; it does not push a version commit back to `main`, so protected branches are supported and no release loop is created.
+4. The workflow checks PHP, runs the plugin tests, installs locked production dependencies, builds `wp-cognito-sso.zip`, and pushes the release tag. It publishes the GitHub release only after the ZIP is attached. WordPress discovers it during its normal update checks.
 
-Only tagged releases are distributed; ordinary commits do not trigger site updates. Keep this repository public so sites can retrieve releases without GitHub credentials. If a release workflow fails after creating a draft, delete that draft before rerunning the job.
+Release runs are queued so simultaneous merges cannot allocate the same version. Retrying the same source commit reuses its tag and resumes an existing draft; an already published release is left untouched. Direct pushes to `main` also release; pushes to other branches do not. The workflow needs the repository's built-in GitHub token to have contents-write permission and permission to create `v*` tags. No personal token is required. Keep this repository public so sites can retrieve releases without GitHub credentials.
 
 For a local release build:
 
 ```bash
 composer install --working-dir=wp-content/plugins/wp-cognito-sso --no-dev --prefer-dist --optimize-autoloader
 php tests/updater-test.php
-php scripts/build-release.php v1.0.8
+php tests/release-test.php
+php scripts/build-release.php
 ```
 
 The installable ZIP is written to `dist/wp-cognito-sso.zip`.

@@ -2,8 +2,13 @@ name: Publish WordPress plugin release
 
 on:
   push:
-    tags:
-      - 'v*'
+    branches:
+      - main
+
+# Serialize version allocation and publication, including closely spaced merges.
+concurrency:
+  group: wordpress-plugin-release
+  queue: max
 
 permissions:
   contents: read
@@ -15,23 +20,46 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.0'
           extensions: zip
           tools: composer:v2
           coverage: none
+      - name: Prepare next patch release
+        id: version
+        run: |
+          git fetch origin --tags
+          release_tag=$(php scripts/prepare-release.php)
+          echo "tag=$release_tag" >> "$GITHUB_OUTPUT"
       - name: Check PHP and updater behavior
         run: |
           find wp-content/plugins/wp-cognito-sso scripts tests -name '*.php' -print0 | xargs -0 -n1 php -l
           php tests/updater-test.php
+          php tests/release-test.php
+          php tests/sso-access-denied.php
       - name: Install production dependencies
         run: composer install --working-dir=wp-content/plugins/wp-cognito-sso --no-dev --prefer-dist --optimize-autoloader --no-interaction --no-progress
       - name: Build installable plugin
-        run: php scripts/build-release.php "$GITHUB_REF_NAME"
+        env:
+          RELEASE_TAG: ${{ steps.version.outputs.tag }}
+        run: php scripts/build-release.php "$RELEASE_TAG"
       - name: Publish release with installable ZIP
         env:
           GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.version.outputs.tag }}
         run: |
-          gh release create "$GITHUB_REF_NAME" dist/wp-cognito-sso.zip --verify-tag --draft --title "WP Cognito SSO $GITHUB_REF_NAME" --generate-notes
-          gh release edit "$GITHUB_REF_NAME" --draft=false --latest
+          git push origin "refs/tags/$RELEASE_TAG"
+          if gh release view "$RELEASE_TAG" --json isDraft >/dev/null 2>&1; then
+            is_draft=$(gh release view "$RELEASE_TAG" --json isDraft --jq '.isDraft')
+            if [ "$is_draft" = false ]; then
+              echo "Release $RELEASE_TAG is already published."
+              exit 0
+            fi
+            gh release upload "$RELEASE_TAG" dist/wp-cognito-sso.zip --clobber
+          else
+            gh release create "$RELEASE_TAG" dist/wp-cognito-sso.zip --verify-tag --draft --title "WP Cognito SSO $RELEASE_TAG" --generate-notes
+          fi
+          gh release edit "$RELEASE_TAG" --draft=false --latest
