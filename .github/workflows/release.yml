@@ -1,0 +1,37 @@
+name: Publish WordPress plugin release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.0'
+          extensions: zip
+          tools: composer:v2
+          coverage: none
+      - name: Check PHP and updater behavior
+        run: |
+          find wp-content/plugins/wp-cognito-sso scripts tests -name '*.php' -print0 | xargs -0 -n1 php -l
+          php tests/updater-test.php
+      - name: Install production dependencies
+        run: composer install --working-dir=wp-content/plugins/wp-cognito-sso --no-dev --prefer-dist --optimize-autoloader --no-interaction --no-progress
+      - name: Build installable plugin
+        run: php scripts/build-release.php "$GITHUB_REF_NAME"
+      - name: Publish release with installable ZIP
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" dist/wp-cognito-sso.zip --verify-tag --draft --title "WP Cognito SSO $GITHUB_REF_NAME" --generate-notes
+          gh release edit "$GITHUB_REF_NAME" --draft=false --latest

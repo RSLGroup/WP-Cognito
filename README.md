@@ -24,6 +24,38 @@ A WordPress plugin for authenticating through an AWS Cognito-compatible OAuth po
 
 Hosted login and migration verification do not use the AWS SDK directly. The SDK is required for features that call Cognito's administrative API: user sync and the password-reset shortcode.
 
+## Automatic plugin updates
+
+Starting with 1.0.8, this plugin checks the latest published stable release in [RSLGroup/WP-Cognito](https://github.com/RSLGroup/WP-Cognito/releases) during WordPress's normal plugin update checks. WordPress displays available updates under **Dashboard → Updates** and **Plugins**, and installs this plugin's updates automatically using its background updater. The plugin details dialog shows release notes. WordPress's standard automatic-update result emails remain in use, subject to the site's email settings and delivery.
+
+**Install 1.0.8 once on each existing site** to enable this mechanism. Older versions cannot discover this update themselves. Use the release's `wp-cognito-sso.zip` asset, which contains the correct plugin folder and production AWS SDK dependencies. GitHub's generated source archives are not installable plugin packages for this repository.
+
+Updates follow WordPress's schedule, rather than happening immediately after a release. WP-Cron, outbound access to GitHub and raw.githubusercontent.com, and permission to install background updates must be available. Global WordPress or hosting restrictions still apply. Successful release lookups are cached for one hour; failed or incomplete releases are retried after five minutes. Drafts, prereleases, invalid versions, missing ZIPs and mismatched version headers are ignored. Compatibility requirements come from the released plugin's headers.
+
+To disable automatic installation for this plugin while keeping update notifications, add this to `wp-config.php`:
+
+```php
+define('WCSSO_AUTO_UPDATE', false);
+```
+
+### Publishing a plugin update
+
+1. Update the plugin's `Version` header and `readme.txt` stable tag to the same new `major.minor.patch` version, and add release notes to the changelog.
+2. Commit and push the changes, then push a matching tag such as `v1.0.8`.
+3. The release workflow checks PHP, tests the updater, installs locked production dependencies, builds `wp-cognito-sso.zip`, and publishes a GitHub release with that asset. The release remains a draft until the ZIP has been uploaded.
+
+Only tagged releases are distributed; ordinary commits do not trigger site updates. Keep this repository public so sites can retrieve releases without GitHub credentials. If a release workflow fails after creating a draft, delete that draft before rerunning the job.
+
+For a local release build:
+
+```bash
+composer install --working-dir=wp-content/plugins/wp-cognito-sso --no-dev --prefer-dist --optimize-autoloader
+php tests/updater-test.php
+php scripts/build-release.php v1.0.8
+```
+
+The installable ZIP is written to `dist/wp-cognito-sso.zip`.
+
 ## Hosted login
 
 Configure the Cognito domain, OAuth client ID and secret, scopes, and redirect path. Add the callback URL displayed by the settings page to the OAuth client's allowed callback URLs. The default callback path is `/cognito-login`.
