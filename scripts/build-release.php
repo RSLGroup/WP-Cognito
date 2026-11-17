@@ -18,6 +18,15 @@ if (!file_exists($plugin . '/vendor/autoload.php')) {
     fwrite(STDERR, "Install production Composer dependencies before building a release.\n");
     exit(1);
 }
+require $plugin . '/vendor/autoload.php';
+$sdk_version = Composer\InstalledVersions::isInstalled('aws/aws-sdk-php')
+    ? Composer\InstalledVersions::getPrettyVersion('aws/aws-sdk-php') : null;
+if (!$sdk_version || version_compare(ltrim($sdk_version, 'v'), '3.356.0', '<')
+    || version_compare(ltrim($sdk_version, 'v'), '4.0.0', '>=')
+    || !class_exists('Aws\\CognitoIdentityProvider\\CognitoIdentityProviderClient')) {
+    fwrite(STDERR, "A working AWS SDK ^3.356 must be installed before building a release.\n");
+    exit(1);
+}
 if (!is_dir($root . '/dist')) {
     mkdir($root . '/dist', 0755, true);
 }

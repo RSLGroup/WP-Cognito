@@ -24,7 +24,7 @@ jobs:
           fetch-depth: 0
       - uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.0'
+          php-version: '8.1'
           extensions: zip
           tools: composer:v2
           coverage: none
@@ -40,12 +40,17 @@ jobs:
           php tests/updater-test.php
           php tests/release-test.php
           php tests/sso-access-denied.php
+          php tests/sdk-notice-test.php missing
       - name: Verify native WordPress update integration
         run: |
           curl --fail --silent --show-error --location https://raw.githubusercontent.com/WordPress/WordPress/6.9-branch/wp-includes/update.php --output "$RUNNER_TEMP/wp-update.php"
           php tests/wp-update-integration.php "$RUNNER_TEMP/wp-update.php"
       - name: Install production dependencies
         run: composer install --working-dir=wp-content/plugins/wp-cognito-sso --no-dev --prefer-dist --optimize-autoloader --no-interaction --no-progress
+      - name: Verify bundled Cognito SDK
+        run: |
+          composer check-platform-reqs --working-dir=wp-content/plugins/wp-cognito-sso --no-dev
+          php tests/sdk-notice-test.php installed
       - name: Build installable plugin
         env:
           RELEASE_TAG: ${{ steps.version.outputs.tag }}

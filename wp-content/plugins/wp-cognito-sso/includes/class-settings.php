@@ -12,6 +12,7 @@ class WCSSO_Settings
         add_action('admin_init', [__CLASS__, 'register_settings']);
         add_action('admin_enqueue_scripts', [__CLASS__, 'enqueue_assets']);
         add_action('admin_notices', [__CLASS__, 'maybe_show_sdk_notice']);
+        add_action('network_admin_notices', [__CLASS__, 'maybe_show_sdk_notice']);
     }
 
     public static function add_menu()
@@ -48,14 +49,10 @@ class WCSSO_Settings
         if (!current_user_can('manage_options')) {
             return;
         }
-        $settings = wcsso_get_settings();
-        if (empty($settings['sync_enabled'])) {
-            return;
-        }
         if (class_exists('Aws\\CognitoIdentityProvider\\CognitoIdentityProviderClient')) {
             return;
         }
-        echo '<div class="notice notice-warning"><p>' . esc_html__('WP Cognito SSO: AWS SDK not found. Install aws/aws-sdk-php or disable sync.', 'wcsso') . '</p></div>';
+        echo '<div class="notice notice-warning"><p>' . esc_html__('WP Cognito SSO: AWS SDK is not installed or could not be loaded. Cognito user sync and password reset are unavailable. Reinstall the complete plugin ZIP, which includes the SDK. For source installations, run composer install --no-dev --optimize-autoloader in the wp-cognito-sso plugin folder. PHP 8.1 or newer is required.', 'wcsso') . '</p></div>';
     }
 
     public static function sanitize_settings($input)

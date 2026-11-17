@@ -5,9 +5,9 @@ A WordPress plugin for authenticating through an AWS Cognito-compatible OAuth po
 ## Requirements
 
 - WordPress 6.0+
-- PHP 8.0+
+- PHP 8.1+
 - Composer when installing from source
-- The AWS SDK for PHP when using WordPress-to-Cognito sync or the password-reset shortcode
+- AWS SDK for PHP `^3.356` (bundled in release ZIPs; used by WordPress-to-Cognito sync and the password-reset shortcode)
 
 ## Installation
 
@@ -23,6 +23,8 @@ A WordPress plugin for authenticating through an AWS Cognito-compatible OAuth po
 4. Open **Settings → Cognito SSO**.
 
 Hosted login and migration verification do not use the AWS SDK directly. The SDK is required for features that call Cognito's administrative API: user sync and the password-reset shortcode.
+
+Release ZIPs include the SDK and its production dependencies; no separate installation is needed on the site. Source installations require the Composer step above. Administrators see a warning if the Cognito SDK client cannot be loaded, even when sync is disabled. The release builder refuses to package a missing or outdated SDK.
 
 ## Automatic plugin updates
 
