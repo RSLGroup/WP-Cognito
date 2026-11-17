@@ -68,6 +68,16 @@ php scripts/build-release.php
 
 The installable ZIP is written to `dist/wp-cognito-sso.zip`.
 
+### Testing automatic update delivery
+
+1. Keep the test site's installed plugin version below the next release version. The site must run PHP 8.1 or newer.
+2. Enable auto-updates for WP Cognito SSO under **Plugins → Installed Plugins** if testing automatic installation. Leave them disabled to test update notifications only.
+3. Merge a change into `main` and wait for the release workflow to publish its installable ZIP.
+4. Use **Dashboard → Updates → Check again** to refresh release discovery. The newer release should appear without uploading a ZIP manually.
+5. For automatic installation, leave WP-Cron enabled and allow WordPress's background update schedule to run. Afterwards, confirm the installed plugin version matches the published release and no missing-SDK warning is displayed.
+
+If discovery fails, record the installed version, published release version and any WP Cognito SSO update-check warning shown on the Plugins or Updates screen.
+
 ## Hosted login
 
 Configure the Cognito domain, OAuth client ID and secret, scopes, and redirect path. Add the callback URL displayed by the settings page to the OAuth client's allowed callback URLs. The default callback path is `/cognito-login`.
