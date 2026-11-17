@@ -4,7 +4,7 @@ Tags: cognito, sso, aws, oauth2, login
 Requires at least: 6.0
 Tested up to: 6.9
 Requires PHP: 8.0
-Stable tag: 1.0.8
+Stable tag: 1.0.10
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -72,8 +72,15 @@ Exclude login, callback and logout paths from full-page or reverse-proxy caches.
 
 == Changelog ==
 
+= 1.0.10 =
+* Add automation for update plugin
+
+= 1.0.9 =
+* Add an optional comma-separated Cognito role blacklist checked before user provisioning and login.
+
 = 1.0.8 =
-* Detect published GitHub releases and install this plugin's updates automatically through WordPress.
+* Show a generic access-denied message when provisioning is disabled and no local account matches.
+* Add a Log out link to the access-denied page to clear WordPress and Cognito sessions.
 
 = 1.0.0 =
 * Initial release.

@@ -77,6 +77,8 @@ class WCSSO_Settings
         $sanitized['redirect_path'] = wcsso_normalize_path($input['redirect_path'] ?? $defaults['redirect_path']);
         $sanitized['login_enabled'] = !empty($input['login_enabled']) ? 1 : 0;
         $sanitized['auto_redirect_login'] = !empty($input['auto_redirect_login']) ? 1 : 0;
+        $blacklist = $input['role_blacklist'] ?? '';
+        $sanitized['role_blacklist'] = implode(', ', wcsso_parse_role_list(is_string($blacklist) ? sanitize_text_field($blacklist) : ''));
         $sanitized['excluded_paths'] = sanitize_textarea_field($input['excluded_paths'] ?? $defaults['excluded_paths']);
         $sanitized['new_user_redirect_url'] = wcsso_sanitize_redirect_target($input['new_user_redirect_url'] ?? $defaults['new_user_redirect_url']);
 
@@ -207,6 +209,18 @@ class WCSSO_Settings
                             <input type="text" id="wcsso_new_user_redirect_url" name="wcsso_settings[new_user_redirect_url]"
                                 value="<?php echo esc_attr($settings['new_user_redirect_url']); ?>" class="regular-text" placeholder="/welcome" />
                             <p class="description">Optional. For first-time Cognito-provisioned users only. Supports a relative path like <code>/welcome</code> or a full URL.</p>
+                        </td>
+                    </tr>
+                </table>
+
+                <h2><?php echo esc_html__('Login access', 'wcsso'); ?></h2>
+                <table class="form-table" role="presentation">
+                    <tr>
+                        <th scope="row"><label for="wcsso_role_blacklist">Cognito role blacklist</label></th>
+                        <td>
+                            <input type="text" id="wcsso_role_blacklist" name="wcsso_settings[role_blacklist]"
+                                value="<?php echo esc_attr($settings['role_blacklist']); ?>" class="regular-text" aria-describedby="wcsso_role_blacklist_description" />
+                            <p class="description" id="wcsso_role_blacklist_description">Optional comma-separated roles, for example <code>student, parent</code>. Leave empty to disable. If any role in Cognito's <code>custom:user_role</code> claim matches, login is denied before creating or updating a WordPress user, including for existing accounts. Matching is exact and case-sensitive; surrounding spaces are ignored. The claim may contain one role or comma-separated roles. Existing sessions are unaffected.</p>
                         </td>
                     </tr>
                 </table>
